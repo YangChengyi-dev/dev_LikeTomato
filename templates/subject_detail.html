@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学科详情 - {{ stats.subject }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 20px;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: none;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        .btn-primary:hover {
+            background-color: #5a67d8;
+            border-color: #5a67d8;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 1.5rem;
+            border-radius: 10px;
+            background-color: #667eea;
+            color: white;
+            margin-bottom: 1rem;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        .stat-label {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .study-item {
+            padding: 1rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .study-item:last-child {
+            border-bottom: none;
+        }
+        .duration-badge {
+            background-color: #48bb78;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: bold;
+        }
+        .date-stats-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .date-stats-item:last-child {
+            border-bottom: none;
+        }
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        .back-btn {
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/logout" class="btn btn-outline-light logout-btn">退出登录</a>
+        
+        <div class="header">
+            <h1 class="mb-2">学习时间统计</h1>
+            <h3>学科详情：{{ stats.subject }}</h3>
+        </div>
+        
+        <a href="/" class="btn btn-outline-primary back-btn">返回首页</a>
+        
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="stat-card" style="background-color: #667eea;">
+                    <div class="stat-value">{{ stats.total_duration }}</div>
+                    <div class="stat-label">总学习时间（分钟）</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="stat-card" style="background-color: #764ba2;">
+                    <div class="stat-value">{{ stats.record_count }}</div>
+                    <div class="stat-label">学习次数</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">按日期统计</div>
+            <div class="card-body">
+                {% if stats.date_stats %}
+                    <div class="date-stats">
+                        {% for date_stat in stats.date_stats %}
+                            <div class="date-stats-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span><strong>{{ date_stat.date }}</strong></span>
+                                    <span class="duration-badge">{{ date_stat.duration }} 分钟</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <p>暂无学习记录</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">学习记录明细</div>
+            <div class="card-body">
+                {% if stats.records %}
+                    <div class="study-records">
+                        {% for record in stats.records %}
+                            <div class="study-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <p class="text-muted mb-0">{{ record.start_time }} - {{ record.end_time }}</p>
+                                        <p class="text-sm text-gray-500">{{ record.date }}</p>
+                                    </div>
+                                    <span class="duration-badge">{{ record.duration }} 分钟</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <p>暂无学习记录</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

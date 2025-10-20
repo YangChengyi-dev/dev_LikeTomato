@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学习时间统计 - 主页面</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 20px;
+        }
+        .container {
+            max-width: 900px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+        }
+        .card-header {
+            background-color: #f8f9fa;
+            border-bottom: none;
+            font-weight: bold;
+        }
+        .btn-primary {
+            background-color: #667eea;
+            border-color: #667eea;
+        }
+        .btn-primary:hover {
+            background-color: #5a67d8;
+            border-color: #5a67d8;
+        }
+        .btn-danger {
+            background-color: #e53e3e;
+            border-color: #e53e3e;
+        }
+        .btn-danger:hover {
+            background-color: #c53030;
+            border-color: #c53030;
+        }
+        .current-study {
+            background-color: #ebf8ff;
+            border-left: 4px solid #3182ce;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        .study-item {
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .study-item:last-child {
+            border-bottom: none;
+        }
+        .duration-badge {
+            background-color: #48bb78;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: bold;
+        }
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/logout" class="btn btn-outline-light logout-btn">退出登录</a>
+        
+        <div class="header">
+            <h1 class="mb-2">学习时间统计</h1>
+            <h3>欢迎回来，{{ username }}</h3>
+            <p class="lead" id="current-time"></p>
+        </div>
+        
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="alert alert-success mb-4" role="alert">
+                    {{ messages[0] }}
+                </div>
+            {% endif %}
+        {% endwith %}
+        
+        {% if is_studying %}
+            <div class="current-study">
+                <h4>🚀 正在学习: {{ current_subject }}</h4>
+                <p>开始时间: {{ current_subject }}</p>
+                <a href="/end_study" class="btn btn-danger mt-2">停止学习</a>
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="card-title mb-3">开始新的学习</h4>
+                    <form method="POST" action="/start_study">
+                        <div class="mb-3">
+                            <label for="subject" class="form-label">学科名称</label>
+                            <input type="text" class="form-control" id="subject" name="subject" placeholder="例如：数学、英语、编程" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">开始学习</button>
+                    </form>
+                </div>
+            </div>
+        {% endif %}
+        
+        <div class="card">
+            <div class="card-header">今日学习记录</div>
+            <div class="card-body">
+                {% if today_data %}
+                    <div class="study-records">
+                        {% for record in today_data %}
+                            <div class="study-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ record.subject }}</strong>
+                                        <p class="text-muted mb-0">{{ record.start_time }} - {{ record.end_time }}</p>
+                                    </div>
+                                    <span class="duration-badge">{{ record.duration }} 分钟</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <div class="mt-4">
+                        <h5>今日总学习时间：
+                            <span class="badge bg-primary">
+                                {{ "%.2f"|format(today_data|sum(attribute='duration')) }} 分钟
+                            </span>
+                        </h5>
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <p>今天还没有学习记录</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if subjects %}
+            <div class="card">
+                <div class="card-header">我的学科</div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for subject in subjects %}
+                            <a href="/subject/{{ subject }}" class="badge bg-secondary py-2 px-3 subject-badge" data-subject="{{ subject }}">
+                                {{ subject }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 更新当前时间
+        function updateCurrentTime() {
+            const now = new Date();
+            const options = { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric', 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                weekday: 'long'
+            };
+            document.getElementById('current-time').textContent = now.toLocaleString('zh-CN', options);
+        }
+        
+        updateCurrentTime();
+        setInterval(updateCurrentTime, 1000);
+        
+        // 如果正在学习，显示倒计时
+        {% if is_studying %}
+            const startTime = new Date('{{ session['study_start_time'] }}');
+            
+            function updateStudyDuration() {
+                const now = new Date();
+                const duration = Math.floor((now - startTime) / 1000);
+                const hours = Math.floor(duration / 3600);
+                const minutes = Math.floor((duration % 3600) / 60);
+                const seconds = duration % 60;
+                
+                const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                const studyElement = document.querySelector('.current-study p');
+                studyElement.textContent = `已学习: ${formattedTime}`;
+            }
+            
+            updateStudyDuration();
+            setInterval(updateStudyDuration, 1000);
+        {% endif %}
+        
+        // 为学科标签设置随机颜色
+        document.addEventListener('DOMContentLoaded', function() {
+            const subjectBadges = document.querySelectorAll('.subject-badge');
+            
+            subjectBadges.forEach(badge => {
+                // 生成随机的柔和颜色
+                const hue = Math.floor(Math.random() * 360);
+                const saturation = Math.floor(Math.random() * 21) + 50; // 50-70%
+                const lightness = Math.floor(Math.random() * 16) + 70;  // 70-85%
+                const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                const textColor = lightness > 75 ? 'black' : 'white';
+                
+                badge.style.backgroundColor = color;
+                badge.style.color = textColor;
+                badge.style.border = 'none';
+                badge.style.transition = 'all 0.3s ease';
+                badge.style.textDecoration = 'none';
+                
+                // 添加悬停效果
+                badge.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.05)';
+                    this.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+                });
+                
+                badge.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1)';
+                    this.style.boxShadow = 'none';
+                });
+            });
+        });
+    </script>
+</body>
+</html>
