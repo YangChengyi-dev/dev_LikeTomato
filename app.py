@@ -235,17 +235,24 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
-@app.route('/start_study', methods=['POST'])
+@app.route('/start_study', methods=['GET', 'POST'])
 def handle_start_study():
     if 'username' not in session:
         return redirect(url_for('login'))
     
-    subject = request.form['subject']
+    # 优先从URL参数获取学科名（用于点击现有学科）
+    subject = request.args.get('subject')
+    
+    # 如果没有URL参数，则从表单获取（用于手动输入）
+    if not subject and request.method == 'POST':
+        subject = request.form.get('subject')
+    
     if not subject:
         flash('请输入学科名称')
         return redirect(url_for('index'))
     
     start_study(session['username'], subject)
+    flash(f'开始学习 {subject}')
     return redirect(url_for('index'))
 
 @app.route('/end_study')

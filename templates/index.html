@@ -78,6 +78,22 @@
             top: 20px;
             right: 20px;
         }
+        .start-study-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .start-study-btn:hover {
+            transform: scale(1.1);
+            filter: brightness(1.1);
+        }
+        .subject-wrapper {
+            display: flex;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -157,9 +173,16 @@
                 <div class="card-body">
                     <div class="d-flex flex-wrap gap-2">
                         {% for subject in subjects %}
-                            <a href="/subject/{{ subject }}" class="badge bg-secondary py-2 px-3 subject-badge" data-subject="{{ subject }}">
-                                {{ subject }}
-                            </a>
+                            <div class="d-flex gap-1 subject-wrapper">
+                                <a href="/subject/{{ subject }}" class="badge py-2 px-3 subject-badge" data-subject="{{ subject }}">
+                                    {{ subject }}
+                                </a>
+                                <a href="/start_study?subject={{ subject }}" class="badge bg-success py-2 px-2 start-study-btn" title="开始学习这门课">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-play-fill" viewBox="0 0 16 16">
+                                        <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/>
+                                    </svg>
+                                </a>
+                            </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -184,40 +207,54 @@
             document.getElementById('current-time').textContent = now.toLocaleString('zh-CN', options);
         }
         
+        // 更新当前时间
         updateCurrentTime();
         setInterval(updateCurrentTime, 1000);
         
         // 如果正在学习，显示倒计时
         {% if is_studying %}
-            const startTime = new Date('{{ session['study_start_time'] }}');
+        // 初始化学习时间
+        var startTimeStr = "{{ session['study_start_time'] }}";
+        var startTime = new Date(startTimeStr);
+        
+        function updateStudyDuration() {
+            var now = new Date();
+            var duration = Math.floor((now - startTime) / 1000);
+            var hours = Math.floor(duration / 3600);
+            var minutes = Math.floor((duration % 3600) / 60);
+            var seconds = duration % 60;
             
-            function updateStudyDuration() {
-                const now = new Date();
-                const duration = Math.floor((now - startTime) / 1000);
-                const hours = Math.floor(duration / 3600);
-                const minutes = Math.floor((duration % 3600) / 60);
-                const seconds = duration % 60;
-                
-                const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                const studyElement = document.querySelector('.current-study p');
-                studyElement.textContent = `已学习: ${formattedTime}`;
+            // 格式化时间
+            function padZero(num) {
+                if (num < 10) {
+                    return '0' + num;
+                } else {
+                    return '' + num;
+                }
             }
             
-            updateStudyDuration();
-            setInterval(updateStudyDuration, 1000);
+            var formattedTime = padZero(hours) + ':' + padZero(minutes) + ':' + padZero(seconds);
+            var studyElement = document.querySelector('.current-study p');
+            if (studyElement) {
+                studyElement.textContent = '已学习: ' + formattedTime;
+            }
+        }
+        
+        updateStudyDuration();
+        setInterval(updateStudyDuration, 1000);
         {% endif %}
         
         // 为学科标签设置随机颜色
-        document.addEventListener('DOMContentLoaded', function() {
-            const subjectBadges = document.querySelectorAll('.subject-badge');
+        function setupSubjectBadges() {
+            var subjectBadges = document.querySelectorAll('.subject-badge');
             
-            subjectBadges.forEach(badge => {
+            subjectBadges.forEach(function(badge) {
                 // 生成随机的柔和颜色
-                const hue = Math.floor(Math.random() * 360);
-                const saturation = Math.floor(Math.random() * 21) + 50; // 50-70%
-                const lightness = Math.floor(Math.random() * 16) + 70;  // 70-85%
-                const color = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-                const textColor = lightness > 75 ? 'black' : 'white';
+                var hue = Math.floor(Math.random() * 360);
+                var saturation = Math.floor(Math.random() * 21) + 50; // 50-70%
+                var lightness = Math.floor(Math.random() * 16) + 70;  // 70-85%
+                var color = 'hsl(' + hue + ', ' + saturation + '%, ' + lightness + '%)';
+                var textColor = lightness > 75 ? 'black' : 'white';
                 
                 badge.style.backgroundColor = color;
                 badge.style.color = textColor;
@@ -236,7 +273,12 @@
                     this.style.boxShadow = 'none';
                 });
             });
-        });
+        }
+        
+        // 页面加载完成后执行
+        window.onload = function() {
+            setupSubjectBadges();
+        };
     </script>
 </body>
 </html>
