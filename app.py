@@ -178,6 +178,53 @@ def get_subject_stats(username, subject):
         'records': sorted(records, key=lambda x: x['start_time'], reverse=True)
     }
 
+# 获取时间范围内的学习统计数据
+def get_time_range_stats(username, days):
+    file_path = get_study_data_file(username)
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days-1)  # 包括今天
+    
+    # 生成日期列表
+    date_list = [(start_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(days)]
+    
+    # 初始化统计数据
+    date_stats = {date: 0 for date in date_list}
+    subject_stats = {}
+    total_duration = 0
+    
+    if os.path.exists(file_path):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader)  # 跳过表头
+            for row in reader:
+                record_date = row[4]
+                duration = float(row[3])
+                subject = row[0]
+                
+                # 检查是否在时间范围内
+                if record_date in date_stats:
+                    # 按日期统计
+                    date_stats[record_date] += duration
+                    total_duration += duration
+                    
+                    # 按学科统计
+                    if subject not in subject_stats:
+                        subject_stats[subject] = 0
+                    subject_stats[subject] += duration
+    
+    # 保留date_stats为字典格式，方便前端处理
+    formatted_date_stats = {date: round(duration, 2) for date, duration in date_stats.items()}
+    
+    # 保留subject_stats为字典格式，方便Chart.js使用
+    formatted_subject_stats = {subject: round(duration, 2) for subject, duration in subject_stats.items()}
+    
+    return {
+        'date_stats': formatted_date_stats,
+        'subject_stats': formatted_subject_stats,
+        'total_duration': round(total_duration, 2),
+        'days': days
+    }
+
 @app.route('/')
 def index():
     if 'username' not in session:
@@ -190,13 +237,21 @@ def index():
     current_subject = session.get('current_subject', '')
     start_time = session.get('study_start_time', '')
     
+    # 获取不同时间范围的统计数据
+    stats_1day = get_time_range_stats(username, 1)
+    stats_7days = get_time_range_stats(username, 7)
+    stats_30days = get_time_range_stats(username, 30)
+    
     return render_template('index.html', 
                           username=username,
                           today_data=today_data,
                           subjects=subjects,
                           is_studying=is_studying,
                           current_subject=current_subject,
-                          start_time=start_time)
+                          start_time=start_time,
+                          stats_1day=stats_1day,
+                          stats_7days=stats_7days,
+                          stats_30days=stats_30days)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():

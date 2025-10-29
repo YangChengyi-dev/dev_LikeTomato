@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>学习时间统计 - 主页面</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             background-color: #f8f9fa;
@@ -188,6 +189,95 @@
                 </div>
             </div>
         {% endif %}
+        
+        <!-- 学习统计图表区域 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="nav nav-pills" id="stats-tabs" role="tablist">
+                    <button class="nav-link active" id="day1-tab" data-bs-toggle="tab" data-bs-target="#day1-content" type="button" role="tab" aria-controls="day1-content" aria-selected="true">近1天</button>
+                    <button class="nav-link" id="day7-tab" data-bs-toggle="tab" data-bs-target="#day7-content" type="button" role="tab" aria-controls="day7-content" aria-selected="false">近7天</button>
+                    <button class="nav-link" id="day30-tab" data-bs-toggle="tab" data-bs-target="#day30-content" type="button" role="tab" aria-controls="day30-content" aria-selected="false">近30天</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="tab-content" id="stats-tabContent">
+                    <!-- 近1天统计 -->
+                    <div class="tab-pane fade show active" id="day1-content" role="tabpanel" aria-labelledby="day1-tab">
+                        <div class="row mb-4">
+                            <div class="col-lg-6 mb-4">
+                                <h5>学习时间分布</h5>
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="day1-date-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 mb-4">
+                                <h5>学科分布</h5>
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="day1-subject-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <h5>总学习时间：
+                                <span class="badge bg-primary">
+                                    {{ "%.2f"|format(stats_1day.total_duration) }} 分钟
+                                </span>
+                            </h5>
+                        </div>
+                    </div>
+                    
+                    <!-- 近7天统计 -->
+                    <div class="tab-pane fade" id="day7-content" role="tabpanel" aria-labelledby="day7-tab">
+                        <div class="row mb-4">
+                            <div class="col-lg-6 mb-4">
+                                <h5>学习时间分布</h5>
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="day7-date-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 mb-4">
+                                <h5>学科分布</h5>
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="day7-subject-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <h5>总学习时间：
+                                <span class="badge bg-primary">
+                                    {{ "%.2f"|format(stats_7days.total_duration) }} 分钟
+                                </span>
+                            </h5>
+                        </div>
+                    </div>
+                    
+                    <!-- 近30天统计 -->
+                    <div class="tab-pane fade" id="day30-content" role="tabpanel" aria-labelledby="day30-tab">
+                        <div class="row mb-4">
+                            <div class="col-lg-6 mb-4">
+                                <h5>学习时间分布</h5>
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="day30-date-chart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-lg-6 mb-4">
+                                <h5>学科分布</h5>
+                                <div class="chart-container" style="height: 300px;">
+                                    <canvas id="day30-subject-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <h5>总学习时间：
+                                <span class="badge bg-primary">
+                                    {{ "%.2f"|format(stats_30days.total_duration) }} 分钟
+                                </span>
+                            </h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -275,9 +365,188 @@
             });
         }
         
+        // 动态生成颜色函数
+        function generateColors(count) {
+            const colors = [];
+            // 确保生成的颜色足够且有区分度
+            for (let i = 0; i < count; i++) {
+                // 使用黄金比例生成HSL颜色，确保颜色分布均匀
+                const hue = (i * 0.618033988749895 * 360) % 360;
+                const saturation = 70 + (Math.sin(i * 2) * 10); // 70-90% 饱和度
+                const lightness = 45 + (Math.cos(i * 1.5) * 5);  // 45-55% 亮度
+                
+                // 添加填充色和边框色
+                colors.push({
+                    fill: `hsla(${hue}, ${saturation}%, ${lightness}%, 0.7)`,
+                    border: `hsla(${hue}, ${saturation}%, ${lightness}%, 1)`
+                });
+            }
+            return colors;
+        }
+
+        // 初始化日期统计图表（折线图）
+        function initDateChart(canvasId, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const labels = Object.keys(data).sort();
+            const durations = labels.map(date => data[date]);
+            
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '学习时间(分钟)',
+                        data: durations,
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '分钟'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // 初始化学科统计图表（饼图）
+        function initSubjectChart(canvasId, data) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            const labels = Object.keys(data);
+            const durations = Object.values(data);
+            
+            // 如果没有数据，显示空状态
+            if (labels.length === 0) {
+                return new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['暂无数据'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['#f8f9fa'],
+                            borderColor: ['#dee2e6'],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // 动态生成颜色
+            const colors = generateColors(labels.length);
+            
+            return new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: durations,
+                        backgroundColor: colors.map(c => c.fill),
+                        borderColor: colors.map(c => c.border),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {    
+                            position: 'right'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value.toFixed(1)}分钟 (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 初始化所有图表
+        function initAllCharts() {
+            try {
+                // 获取Flask传递的数据，添加默认空对象以防止错误
+                const statsData = {
+                    day1: {{ stats_1day|tojson|safe }}, 
+                    day7: {{ stats_7days|tojson|safe }},
+                    day30: {{ stats_30days|tojson|safe }}
+                };
+                
+                // 确保数据结构正确
+                const ensureStats = (data) => {
+                    return {
+                        date_stats: data.date_stats || {},
+                        subject_stats: data.subject_stats || {},
+                        total_duration: data.total_duration || 0,
+                        days: data.days || 0
+                    };
+                };
+                
+                // 修复数据结构
+                statsData.day1 = ensureStats(statsData.day1);
+                statsData.day7 = ensureStats(statsData.day7);
+                statsData.day30 = ensureStats(statsData.day30);
+                
+                // 初始化所有图表，添加空数据检查
+                initDateChart('day1-date-chart', statsData.day1.date_stats);
+                initSubjectChart('day1-subject-chart', statsData.day1.subject_stats);
+                
+                initDateChart('day7-date-chart', statsData.day7.date_stats);
+                initSubjectChart('day7-subject-chart', statsData.day7.subject_stats);
+                
+                initDateChart('day30-date-chart', statsData.day30.date_stats);
+                initSubjectChart('day30-subject-chart', statsData.day30.subject_stats);
+            } catch (error) {
+                console.error('图表初始化错误:', error);
+                // 如果初始化失败，为所有图表容器设置空状态提示
+                const chartContainers = document.querySelectorAll('.chart-container');
+                chartContainers.forEach(container => {
+                    container.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted">暂无数据</div>';
+                });
+            }
+        }
+        
         // 页面加载完成后执行
         window.onload = function() {
             setupSubjectBadges();
+            initAllCharts();
         };
     </script>
 </body>
