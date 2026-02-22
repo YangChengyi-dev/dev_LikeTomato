@@ -6,6 +6,9 @@ import hashlib
 import secrets
 import random
 
+# 导入Waitress WSGI服务器
+from waitress import serve
+
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 
@@ -26,6 +29,10 @@ if not os.path.exists(USERS_FILE):
 def get_study_data_file(username):
     return os.path.join(STUDY_DATA_DIR, f'{username}_study_data.csv')
 
+# 签到数据文件路径函数
+def get_checkin_data_file(username):
+    return os.path.join(STUDY_DATA_DIR, f'{username}_checkin_data.csv')
+
 # 初始化学习数据文件
 def init_study_data_file(username):
     file_path = get_study_data_file(username)
@@ -33,6 +40,14 @@ def init_study_data_file(username):
         with open(file_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(['subject', 'start_time', 'end_time', 'duration_minutes', 'date'])
+
+# 初始化签到数据文件
+def init_checkin_data_file(username):
+    file_path = get_checkin_data_file(username)
+    if not os.path.exists(file_path):
+        with open(file_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['checkin_date', 'checkin_time'])
 
 # 密码哈希函数
 def hash_password(password):
@@ -64,6 +79,7 @@ def add_user(username, password):
         writer = csv.writer(f)
         writer.writerow([username, hash_password(password)])
     init_study_data_file(username)
+    init_checkin_data_file(username)
 
 # 记录学习开始
 def start_study(username, subject):
@@ -225,6 +241,123 @@ def get_time_range_stats(username, days):
         'days': days
     }
 
+# 检查今日是否已签到
+def check_today_checkin(username):
+    today = datetime.now().strftime('%Y-%m-%d')
+    file_path = get_checkin_data_file(username)
+    
+    # 先检查文件是否存在，避免不必要的异常处理
+    if not os.path.exists(file_path):
+        return False
+    
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader)  # 跳过表头
+            for row in reader:
+                if row[0] == today:
+                    return True
+    except Exception as e:
+        print(f"Error checking today's check-in: {e}")
+    return False
+
+# 执行签到
+def perform_checkin(username):
+    today = datetime.now().strftime('%Y-%m-%d')
+    now_time = datetime.now().strftime('%H:%M:%S')
+    file_path = get_checkin_data_file(username)
+    
+    # 确保文件存在
+    init_checkin_data_file(username)
+    
+    # 添加签到记录
+    with open(file_path, 'a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow([today, now_time])
+    return True
+
+# 获取累计签到天数
+def get_total_checkin_days(username):
+    file_path = get_checkin_data_file(username)
+    days = 0
+    
+    if os.path.exists(file_path):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            next(reader)  # 跳过表头
+            days = sum(1 for row in reader)
+    return days
+
+# 获取连续签到天数
+def get_consecutive_checkin_days(username):
+    file_path = get_checkin_data_file(username)
+    checkin_dates = []
+    
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f)
+                next(reader)  # 跳过表头
+                for row in reader:
+                    checkin_dates.append(row[0])
+    except Exception as e:
+        print(f"Error reading check-in data: {e}")
+        return 0
+    
+    if not checkin_dates:
+        return 0
+    
+    # 转换为日期对象并排序（从新到旧）
+    sorted_dates = []
+    for date_str in checkin_dates:
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+            sorted_dates.append(date_obj)
+        except ValueError:
+            # 跳过无效日期格式
+            continue
+    
+    # 排序日期（从新到旧）
+    sorted_dates.sort(reverse=True)
+    
+    # 计算连续天数
+    if not sorted_dates:
+        return 0
+    
+    consecutive_days = 1  # 至少有一天（最近的签到）
+    
+    # 从最近的签到日期开始，检查前一天是否有签到记录
+    # 方法：计算应该连续的前一天日期，检查是否存在于签到记录中
+    latest_date = sorted_dates[0]
+    current_check_date = latest_date
+    
+    # 从最近日期开始，向前检查每一天是否有签到
+    while True:
+        # 计算前一天的日期
+        previous_day = current_check_date - timedelta(days=1)
+        
+        # 检查前一天是否有签到记录
+        if previous_day in sorted_dates:
+            consecutive_days += 1
+            current_check_date = previous_day
+        else:
+            # 遇到断签，停止计算
+            break
+    
+    return consecutive_days
+
+# 获取签到状态信息
+def get_checkin_status(username):
+    today_checked = check_today_checkin(username)
+    total_days = get_total_checkin_days(username)
+    consecutive_days = get_consecutive_checkin_days(username)
+    
+    return {
+        'today_checked': today_checked,
+        'total_days': total_days,
+        'consecutive_days': consecutive_days
+    }
+
 @app.route('/')
 def index():
     if 'username' not in session:
@@ -236,6 +369,9 @@ def index():
     is_studying = 'study_start_time' in session
     current_subject = session.get('current_subject', '')
     start_time = session.get('study_start_time', '')
+    
+    # 获取签到状态信息
+    checkin_status = get_checkin_status(username)
     
     # 获取不同时间范围的统计数据
     stats_1day = get_time_range_stats(username, 1)
@@ -249,6 +385,7 @@ def index():
                           is_studying=is_studying,
                           current_subject=current_subject,
                           start_time=start_time,
+                          checkin_status=checkin_status,
                           stats_1day=stats_1day,
                           stats_7days=stats_7days,
                           stats_30days=stats_30days)
@@ -335,6 +472,25 @@ def subject_detail(subject_name):
                           username=username,
                           stats=stats)
 
+@app.route('/checkin')
+def handle_checkin():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    
+    username = session['username']
+    
+    # 检查今日是否已签到
+    if check_today_checkin(username):
+        flash('今日已签到，请勿重复签到')
+    else:
+        # 执行签到
+        perform_checkin(username)
+        # 获取最新签到状态
+        checkin_status = get_checkin_status(username)
+        flash(f'签到成功！累计签到 {checkin_status["total_days"]} 天，连续签到 {checkin_status["consecutive_days"]} 天')
+    
+    return redirect(url_for('index'))
+
 @app.route('/get_random_color')
 def get_random_color():
     # 生成随机的柔和颜色
@@ -347,11 +503,11 @@ def get_random_color():
     })
 
 if __name__ == '__main__':
-    # 使用Waitress作为WSGI服务器代替Flask开发服务器
-    from waitress import serve
+    # 使用Waitress生产级WSGI服务器
     host = '0.0.0.0'
     port = 5000
     print(f"Starting server with Waitress...")
     print(f" * Running on http://{host}:{port}/")
     print(f" * Running on http://localhost:{port}/")
+    # Waitress自动在生产模式下运行，无需额外配置
     serve(app, host=host, port=port)
